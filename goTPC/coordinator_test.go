@@ -1,21 +1,20 @@
-package tester
+package goTPC
 
 import (
 	"flag"
-	tpc "github.com/selabhvl/mbtcpn/goTPC/twophasecommit"
-	r "github.com/selabhvl/mbtcpn/goTPC/twophasecommit/adaptor/reader"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 )
 
-var tpcTests r.XMLTest
+var tpcTests XMLTest
 
 func TestMain(m *testing.M) {
 	// Flag definitions.
 	var dir = flag.String(
 		"dir",
-		"../../xml/tests.xml",
+		"xml/ss-tpctests-3.xml",
 		"path to system test file",
 	)
 
@@ -23,7 +22,7 @@ func TestMain(m *testing.M) {
 	flag.Parse()
 
 	// Load the system test cases from XML file
-	r.ParseXMLTestCase(*dir, &tpcTests)
+	ParseXMLTestCase(*dir, &tpcTests)
 
 	// Run tests/benchmarks.
 	res := m.Run()
@@ -34,18 +33,17 @@ func TestNewCoordinator(t *testing.T) {
 
 	t.Logf("The test cases from xml: %s", tpcTests.TestName)
 
-	canCommitChannel := make(chan tpc.CanCommit, 16)
-	decisionChannel := make(chan tpc.Decision, 16)
-	finalDecisionChannel := make(chan tpc.DecisionEnum, 1)
+	canCommitChannel := make(chan CanCommit, 16)
+	decisionChannel := make(chan Decision, 16)
+	finalDecisionChannel := make(chan DecisionEnum, 1)
 
 	for _, cs := range tpcTests.TestCases {
 
 		t.Logf("The test case ID: %v", cs.CaseID)
 		t.Log("current number or workers:", cs.NumOfWorker)
 
-		ch := tpc.NewCoordinator(canCommitChannel, decisionChannel)
-		/*		var coordinatr tpc.Coordinator
-				coordinatr = ch*/
+		ch := NewCoordinator(canCommitChannel, decisionChannel)
+
 		ch.Start(cs.NumOfWorker, finalDecisionChannel)
 
 		for i := 0; i < cs.NumOfWorker; i++ {
@@ -56,12 +54,13 @@ func TestNewCoordinator(t *testing.T) {
 						t.Log("Haven't received cancommit message")
 					} else {
 						t.Log("Received cancommit message is:", c.String())
-						idx := tpc.Search(cs.Votes, c, 0, len(cs.Votes))
+						idx := Search(cs.Votes, c, 0, len(cs.Votes))
+						fmt.Println("got idx:", idx, "for worker:", c.GetWorkID())
 						ch.DeliverVote(cs.Votes[idx])
 					}
 				}
-
 			}()
+			time.Sleep(10 * time.Millisecond)
 		}
 		time.Sleep(20 * time.Millisecond)
 
@@ -73,15 +72,16 @@ func TestNewCoordinator(t *testing.T) {
 						t.Log("Haven't received decision message")
 					} else {
 						t.Log("Received decision message", d.String())
-						idx := tpc.Search(cs.Decisions, d, 0, len(cs.Decisions))
+						idx := Search(cs.Decisions, d, 0, len(cs.Decisions))
 
 						if d.GetDecision() != cs.Decisions[idx].GetDecision() {
 							t.Errorf("got worker id=%d, decision=%s, expect worker id=%d, decision=%s", d.GetWorkID(), d.GetDecision(), cs.Decisions[idx].GetWorkID(), cs.Decisions[idx].GetDecision())
 						}
-						ch.DeliverACK(tpc.Ack{WorkerID: d.GetWorkID()})
+						ch.DeliverACK(Ack{WorkerID: d.GetWorkID()})
 					}
 				}
 			}()
+			time.Sleep(10 * time.Millisecond)
 		}
 		time.Sleep(40 * time.Millisecond)
 

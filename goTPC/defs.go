@@ -1,4 +1,4 @@
-package twophasecommit
+package goTPC
 
 import "fmt"
 
@@ -11,6 +11,7 @@ type WorkerID int
 // VoteEnum represents the enumeration type for the value of the vote.
 type VoteEnum int
 
+// Yes and No are votes by workers
 const (
 	Yes VoteEnum = iota
 	No
@@ -21,6 +22,7 @@ var voteValues = []string{"Yes", "No"}
 // DecisionEnum represents the enumeration type for the value of the decision.
 type DecisionEnum int
 
+// Commit and Abort are decisions made by coordinator
 const (
 	Commit DecisionEnum = iota
 	Abort
@@ -28,24 +30,24 @@ const (
 
 var decisionValues = []string{"Commit", "Abort"}
 
-// ConCommit represents the message sent by the coordinator to the test adapter/workers.
+// CanCommit represents the message sent by the coordinator to workers.
 type CanCommit struct {
 	WorkerID WorkerID
 }
 
-// Vote represents the message sent by the test adapter/workers to the coordinator.
+// Vote represents the message sent by workers to the coordinator.
 type Vote struct {
 	WorkerID  WorkerID
 	VoteValue VoteEnum
 }
 
-// Decision represents the message sent by the coordinator to the test adapter/workers..
+// Decision represents the message sent by the coordinator to workers.
 type Decision struct {
 	WorkerID      WorkerID
 	DecisionValue DecisionEnum
 }
 
-// ACK represents the message sent by the test adapter/workers to the coordinator.
+// Ack represents the message sent by workers to the coordinator.
 type Ack struct {
 	WorkerID WorkerID
 }
@@ -151,18 +153,24 @@ func (d Decision) GetDecision() DecisionEnum {
 	return d.DecisionValue
 }
 
-// search is a binary search function to find the message from a slice.
+// Search is a binary search function to find the message from a slice.
 func Search(elems Slice, elem Message, low int, high int) int {
 	if low > high {
 		return -1
-	} else {
-		mid := (low + high - 1) / 2
-		if elems.GetWorkID(mid) < elem.GetWorkID() {
-			return Search(elems, elem, mid+1, high)
-		} else if elems.GetWorkID(mid) > elem.GetWorkID() {
-			return Search(elems, elem, low, mid-1)
-		} else {
-			return mid
-		}
 	}
+
+	mid := (low + high - 1) / 2
+
+	if low == high {
+		return low
+	}
+
+	if elems.GetWorkID(mid) < elem.GetWorkID() {
+		return Search(elems, elem, mid+1, high)
+	} else if elems.GetWorkID(mid) > elem.GetWorkID() {
+		return Search(elems, elem, low, mid-1)
+	} else {
+		return mid
+	}
+
 }
